@@ -19,9 +19,8 @@ provider "aws" {
   default_tags {
     tags = {
       app_name = "${var.project_name}-app"
-      cloud    = "aws"
-      version  = "1.0.0"
       owner    = var.project_owner
+      env      = "vas-dev"
     }
   }
 }

@@ -170,3 +170,158 @@ resource "aws_lb_listener_rule" "app" {
     }
   }
 }
+
+# WAF (attached to ALB)
+resource "aws_wafv2_web_acl" "main" {
+  name        = "${var.project_name}-managed-rule"
+  description = "Managed rule"
+  scope       = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule { # rate limit 500 request per 5 minutes originating from a single IP
+    name     = "rate-limit-rule"
+    priority = 10
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit                 = 500
+        aggregate_key_type    = "IP"
+        evaluation_window_sec = 300
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = false
+      metric_name                = "${var.project_name}-rate-limit-rule-metric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule { # bot protection
+    name     = "bot-control-rule"
+    priority = 11
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesBotControlRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = false
+      metric_name                = "${var.project_name}-bot-control-rule-metric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule { # core common threat protection
+    name     = "core-rule"
+    priority = 12
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = false
+      metric_name                = "${var.project_name}-core-rule-metric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule { # geo blocking countries using rule group reference
+    name     = "block-countries-rule"
+    priority = 13
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      rule_group_reference_statement {
+        arn = aws_wafv2_rule_group.main.arn
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = false
+      metric_name                = "${var.project_name}-geo-blocking-rule-metric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  captcha_config {
+    immunity_time_property {
+      immunity_time = 300 // default 300s
+    }
+  }
+
+  challenge_config {
+    immunity_time_property {
+      immunity_time = 300 // default 300s
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = false
+    metric_name                = "${var.project_name}-alb-acl"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_rule_group" "main" {
+  name     = "block-countries-rule-group"
+  capacity = 1
+  scope    = "REGIONAL"
+
+  rule {
+    name     = "exclude-countries"
+    priority = 10
+
+    action {
+      block {}
+    }
+
+    statement {
+      geo_match_statement {
+        country_codes = ["MY"]
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = false
+      metric_name                = "exclude-countries-metric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = false
+    metric_name                = "block-countries-rule-group-metric"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_web_acl_association" "alb" {
+  resource_arn = aws_lb.main.arn
+  web_acl_arn  = aws_wafv2_web_acl.main.arn
+}

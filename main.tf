@@ -51,17 +51,21 @@ module "gateway" {
 module "route_table" {
   source = "./modules/route_table"
 
-  vpc_id              = module.vpc.vpc_id
-  internet_gateway_id = module.gateway.internet_gateway_id
-  nat_gateway_a_id    = module.gateway.nat_gateway_a_id
-  nat_gateway_b_id    = module.gateway.nat_gateway_b_id
-  public_subnet_1a_id = module.subnets.subnet_ids["public-subnet-1a"]
-  public_subnet_1b_id = module.subnets.subnet_ids["public-subnet-1b"]
-  web_subnet_1a_id    = module.subnets.subnet_ids["web-subnet-1a"]
-  app_subnet_1a_id    = module.subnets.subnet_ids["app-subnet-1a"]
-  app_subnet_1b_id    = module.subnets.subnet_ids["app-subnet-1b"]
-  data_subnet_1a_id   = module.subnets.subnet_ids["data-subnet-1a"]
-  data_subnet_1b_id   = module.subnets.subnet_ids["data-subnet-1b"]
+  vpc_id                 = module.vpc.vpc_id
+  internet_gateway_id    = module.gateway.internet_gateway_id
+  nat_gateway_a_id       = module.gateway.nat_gateway_a_id
+  nat_gateway_b_id       = module.gateway.nat_gateway_b_id
+  public_subnet_1a_id    = module.subnets.subnet_ids["public-subnet-1a"]
+  public_subnet_1b_id    = module.subnets.subnet_ids["public-subnet-1b"]
+  web_subnet_1a_id       = module.subnets.subnet_ids["web-subnet-1a"]
+  app_subnet_1a_id       = module.subnets.subnet_ids["app-subnet-1a"]
+  app_subnet_1b_id       = module.subnets.subnet_ids["app-subnet-1b"]
+  data_subnet_1a_id      = module.subnets.subnet_ids["data-subnet-1a"]
+  data_subnet_1b_id      = module.subnets.subnet_ids["data-subnet-1b"]
+  firewall_a_endpoint_id = module.network_firewall.firewall_endpoint_ids["ap-southeast-1a"]
+  firewall_b_endpoint_id = module.network_firewall.firewall_endpoint_ids["ap-southeast-1b"]
+  firewall_subnet_1a_id  = module.subnets.subnet_ids["firewall-subnet-1a"]
+  firewall_subnet_1b_id  = module.subnets.subnet_ids["firewall-subnet-1b"]
 }
 
 module "security_group" {
@@ -168,6 +172,21 @@ module "secrets_manager" {
   github_token               = var.github_token
 }
 
+module "network_firewall" {
+  source = "./modules/network_firewall"
+
+  project_name = var.project_name
+  vpc_id       = module.vpc.vpc_id
+  firewall_subnet_ids = [
+    module.subnets.subnet_ids["firewall-subnet-1a"],
+    module.subnets.subnet_ids["firewall-subnet-1b"]
+  ]
+}
+
 # terraform plan -var-file="config.tfvars" 
 # terraform apply -var-file="config.tfvars" --auto-approve
 # terraform destroy -var-file="config.tfvars"
+
+output "firewall_endpoint_ids" {
+  value = module.network_firewall.firewall_endpoint_ids
+}

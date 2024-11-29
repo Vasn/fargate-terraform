@@ -1,5 +1,9 @@
-output "public_subnet_route_table_id" {
-  value = aws_route_table.public_subnet.id
+output "public_subnet_1a_route_table_id" {
+  value = aws_route_table.public_subnet_1a.id
+}
+
+output "public_subnet_1b_route_table_id" {
+  value = aws_route_table.public_subnet_1b.id
 }
 
 output "private_subnet_1a_route_table_id" {
